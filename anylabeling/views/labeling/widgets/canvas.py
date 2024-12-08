@@ -1258,49 +1258,49 @@ class Canvas(
         # Draw texts
         if self.show_texts:
             text_color = "#FFFFFF"
-            background_color = "#007BFF"
             p.setFont(
                 QtGui.QFont(
-                    "Arial", int(max(6.0, int(round(8.0 / Shape.scale))))
+                    "Arial", int(max(4.0, int(round(6.0 / Shape.scale))))
                 )
             )
-            pen = QtGui.QPen(QtGui.QColor(background_color), 8, Qt.SolidLine)
-            p.setPen(pen)
             for shape in self.shapes:
                 description = shape.description
                 if description:
-                    bbox = shape.bounding_rect()
+                    try:
+                        bbox = shape.bounding_rect()
+                    except IndexError:
+                        continue
+                        
                     fm = QtGui.QFontMetrics(p.font())
-                    rect = fm.boundingRect(description)
-                    p.fillRect(
-                        int(rect.x() + bbox.x()),
-                        int(rect.y() + bbox.y()),
-                        int(rect.width()),
-                        int(rect.height()),
-                        QtGui.QColor(background_color),
+                    desc_rect = fm.boundingRect(description)
+                    
+                    # 描述文本位置 - 在标签上方
+                    rect = QtCore.QRect(
+                        int(bbox.x() + (bbox.width() - desc_rect.width()) / 2),  # 水平居中
+                        int(bbox.y() - desc_rect.height() * 2 - 3),  # 在标签上方
+                        int(desc_rect.width()),
+                        int(desc_rect.height())
                     )
-                    p.drawText(
-                        int(bbox.x()),
-                        int(bbox.y()),
-                        description,
+                    text_pos = QtCore.QPoint(
+                        int(bbox.x() + (bbox.width() - desc_rect.width()) / 2),
+                        int(bbox.y() - desc_rect.height() - 4)
                     )
-            pen = QtGui.QPen(QtGui.QColor(text_color), 8, Qt.SolidLine)
-            p.setPen(pen)
-            for shape in self.shapes:
-                description = shape.description
-                if description:
-                    bbox = shape.bounding_rect()
-                    p.drawText(
-                        int(bbox.x()),
-                        int(bbox.y()),
-                        description,
-                    )
+                    
+                    # 绘制半透明背景
+                    bg_color = shape.line_color
+                    bg_color.setAlpha(128)
+                    p.fillRect(rect, bg_color)
+                    
+                    # 绘制白色文本
+                    pen = QtGui.QPen(QtGui.QColor("#FFFFFF"), 8, Qt.SolidLine)
+                    p.setPen(pen)
+                    p.drawText(text_pos, description)
 
         # Draw labels
         if self.show_labels:
             p.setFont(
                 QtGui.QFont(
-                    "Arial", int(max(6.0, int(round(8.0 / Shape.scale))))
+                    "Arial", int(max(4.0, int(round(6.0 / Shape.scale))))  # 缩小字体大小
                 )
             )
             labels = []
@@ -1337,20 +1337,23 @@ class Canvas(
                         bbox = shape.bounding_rect()
                     except IndexError:
                         continue
+                    
+                    # 计算标签位置 - 在矩形框上方居中
                     rect = QtCore.QRect(
-                        int(bbox.x()),
-                        int(bbox.y()),
-                        int(bound_rect.width()),
-                        int(bound_rect.height()),
+                        int(bbox.x() + ((bbox.width() - bound_rect.width()) / 2) ),  # 背景框的x坐标,水平居中对齐
+                        int(bbox.y() - bound_rect.height() ),  # 在框上方，这里的-2可以调整
+                        int(bound_rect.width() + 1.5), # 背景框宽度,比文本宽度多0.2像素,防止文字紧贴边缘
+                        int(bound_rect.height() - 1) # 背景框高度,与文本高度相同
                     )
                     text_pos = QtCore.QPoint(
-                        int(bbox.x()),
-                        int(bbox.y() + bound_rect.height() - d_text),
+                        int(bbox.x() + ((bbox.width() - bound_rect.width()) / 2) ),  # 文本的x坐标,水平居中对齐
+                        int(bbox.y() - d_text - 0.5)  # 文本的y坐标,在标注框上方d_text(1.5)个像素
                     )
+                    
                 elif shape.shape_type in [
                     "circle",
                     "line",
-                    "linestrip",
+                    "linestrip", 
                     "point",
                 ]:
                     points = shape.points
@@ -1359,24 +1362,25 @@ class Canvas(
                         int(point.x() + d_react),
                         int(point.y() - 15),
                         int(bound_rect.width()),
-                        int(bound_rect.height()),
+                        int(bound_rect.height())
                     )
                     text_pos = QtCore.QPoint(
                         int(point.x()),
-                        int(point.y() - 15 + bound_rect.height() - d_text),
+                        int(point.y() - 15 + bound_rect.height() - d_text)
                     )
                 else:
                     continue
-                labels.append((shape, rect, text_pos, label_text))
+                
+                # 绘制半透明背景
+                pen = QtGui.QPen(QtGui.QColor("#FFA500"), 8, Qt.SolidLine)
+                p.setPen(pen)
+                bg_color = shape.line_color
+                bg_color.setAlpha(128)  # 设置透明度
+                p.fillRect(rect, bg_color)
 
-            pen = QtGui.QPen(QtGui.QColor("#FFA500"), 8, Qt.SolidLine)
-            p.setPen(pen)
-            for shape, rect, _, _ in labels:
-                p.fillRect(rect, shape.line_color)
-
-            pen = QtGui.QPen(QtGui.QColor("#FFFFFF"), 8, Qt.SolidLine)
-            p.setPen(pen)
-            for _, _, text_pos, label_text in labels:
+                # 绘制白色文本
+                pen = QtGui.QPen(QtGui.QColor("#FFFFFF"), 8, Qt.SolidLine)
+                p.setPen(pen)
                 p.drawText(text_pos, label_text)
 
         # Draw mouse coordinates
