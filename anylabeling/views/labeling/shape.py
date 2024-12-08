@@ -238,9 +238,21 @@ class Shape:
             color = (
                 self.select_line_color if self.selected else self.line_color
             )
-            pen = QtGui.QPen(color)
+          
             # Try using integer sizes for smoother drawing(?)
-            pen.setWidth(max(1, int(round(self.line_width / self.scale))))
+            # 根据缩放比例动态调整线宽 滴滴
+            if self.scale >= 1.0:  # 放大时
+                # 使用对数函数使线宽变化更平滑
+                max_width = 0.5 / math.log10(self.scale + 1)
+            else:  # 缩小时
+                max_width = 2.0 / self.scale  # 缩小时线宽要相应增加
+            
+            pen = QtGui.QPen(
+                QtGui.QColor(color),
+                max_width,  # 使用动态计算的线宽
+                
+            )
+
             painter.setPen(pen)
 
             line_path = QtGui.QPainterPath()
