@@ -46,81 +46,87 @@ class Canvas(
 
     CREATE, EDIT = 0, 1
 
-    # polygon, rectangle, rotation, line, or point
-    _create_mode = "polygon"
+    # 创建模式: 多边形、矩形、旋转框、线段或点
+    _create_mode = "polygon"  # 默认创建模式为多边形
 
-    _fill_drawing = False
+    _fill_drawing = False  # 是否填充绘制的形状
 
     def __init__(self, *args, **kwargs):
-        self.epsilon = kwargs.pop("epsilon", 10.0)
-        self.double_click = kwargs.pop("double_click", "close")
+        self.epsilon = kwargs.pop("epsilon", 10.0)  # 点击精度阈值
+        self.double_click = kwargs.pop("double_click", "close")  # 双击动作设置
         if self.double_click not in [None, "close"]:
             raise ValueError(
                 f"Unexpected value for double_click event: {self.double_click}"
             )
-        self.num_backups = kwargs.pop("num_backups", 10)
-        self.parent = kwargs.pop("parent")
+        self.num_backups = kwargs.pop("num_backups", 10)  # 历史记录数量
+        self.parent = kwargs.pop("parent")  # 父窗口引用
         super().__init__(*args, **kwargs)
-        # Initialise local state.
-        self.mode = self.EDIT
-        self.is_auto_labeling = False
-        self.auto_labeling_mode: AutoLabelingMode = None
-        self.shapes = []
-        self.shapes_backups = []
-        self.current = None
-        self.selected_shapes = []  # save the selected shapes here
-        self.selected_shapes_copy = []
-        # self.line represents:
-        #   - create_mode == 'polygon': edge from last point to current
-        #   - create_mode == 'rectangle': diagonal line of the rectangle
-        #   - create_mode == 'line': the line
-        #   - create_mode == 'point': the point
-        self.line = Shape()
-        self.prev_point = QtCore.QPoint()
-        self.prev_move_point = QtCore.QPoint()
-        self.offsets = QtCore.QPointF(), QtCore.QPointF()
-        self.scale = 1.0
-        self.pixmap = QtGui.QPixmap()
-        self.visible = {}
-        self._hide_backround = False
-        self.hide_backround = False
-        self.h_hape = None
-        self.prev_h_shape = None
-        self.h_vertex = None
-        self.prev_h_vertex = None
-        self.h_edge = None
-        self.prev_h_edge = None
-        self.moving_shape = False
-        self.rotating_shape = False
-        self.snapping = True
-        self.h_shape_is_selected = False
-        self.h_shape_is_hovered = None
-        self.allowed_oop_shape_types = ["rotation"]
-        self._painter = QtGui.QPainter()
-        self._cursor = CURSOR_DEFAULT
-        # Menus:
-        # 0: right-click without selection and dragging of shapes
-        # 1: right-click with selection and dragging of shapes
+        
+        # 初始化状态
+        self.mode = self.EDIT  # 默认为编辑模式
+        self.is_auto_labeling = False  # 是否为自动标注模式
+        self.auto_labeling_mode: AutoLabelingMode = None  # 自动标注模式
+        self.shapes = []  # 所有形状列表
+        self.shapes_backups = []  # 形状历史记录
+        self.current = None  # 当前正在绘制的形状
+        self.selected_shapes = []  # 已选择的形状列表
+        self.selected_shapes_copy = []  # 已选择形状的副本
+        # self.line表示:
+        # - create_mode == 'polygon': 从最后一个点到当前点的边
+        # - create_mode == 'rectangle': 矩形的对角线
+        # - create_mode == 'line': 线段
+        # - create_mode == 'point': 点
+        self.line = Shape()  # 当前绘制的线段
+        self.prev_point = QtCore.QPoint()  # 上一个点的位置
+        self.prev_move_point = QtCore.QPoint()  # 上一次移动的位置
+        self.offsets = QtCore.QPointF(), QtCore.QPointF()  # 偏移量
+        self.scale = 0.5  # 缩放比例
+        self.pixmap = QtGui.QPixmap()  # 图片对象
+        self.visible = {}  # 形状可见性字典
+        self._hide_backround = False  # 是否隐藏背景
+        self.hide_backround = False  # 是否隐藏背景的设置值
+        self.h_hape = None  # 当前高亮的形状
+        self.prev_h_shape = None  # 上一个高亮的形状
+        self.h_vertex = None  # 当前高亮的顶点
+        self.prev_h_vertex = None  # 上一个高亮的顶点
+        self.h_edge = None  # 当前高亮的边
+        self.prev_h_edge = None  # 上一个高亮的边
+        self.moving_shape = False  # 是否正在移动形状
+        self.rotating_shape = False  # 是否正在旋转形状
+        self.snapping = True  # 是否启用吸附功能
+        self.h_shape_is_selected = False  # 高亮的形状是否被选中
+        self.h_shape_is_hovered = None  # 高亮的形状是否被悬停
+        self.allowed_oop_shape_types = ["rotation"]  # 允许超出图片边界的形状类型
+        self._painter = QtGui.QPainter()  # 画笔对象
+        self._cursor = CURSOR_DEFAULT  # 默认光标
+        # 右键菜单:
+        # 0: 无选中形状时的右键菜单
+        # 1: 有选中形状时的右键菜单
+
+
         self.menus = (QtWidgets.QMenu(), QtWidgets.QMenu())
-        # Set widget options.
-        self.setMouseTracking(True)
-        self.setFocusPolicy(QtCore.Qt.WheelFocus)
-        self.show_groups = False
-        self.show_texts = True
-        self.show_labels = True
-        self.show_scores = True
-        self.show_degrees = False
-        self.show_linking = True
+        # 设置部件选项
+        self.setMouseTracking(True)  # 启用鼠标追踪
+        self.setFocusPolicy(QtCore.Qt.WheelFocus)  # 设置焦点策略为滚轮焦点
+        
+        # 显示选项
+        self.show_groups = False  # 是否显示分组
+        self.show_texts = True  # 是否显示文本
+        self.show_labels = True  # 是否显示标签
+        self.show_scores = True  # 是否显示得分
+        self.show_degrees = False  # 是否显示角度
+        self.show_linking = True  # 是否显示连接线
+        
+        # 设置十字线选项
+        self.cross_line_show = True  # 是否显示十字线
+        self.cross_line_width = 1.0  # 十字线宽度
+        self.cross_line_color = "#00FF00"  # 十字线颜色(绿色)
+        self.cross_line_opacity = 0.5  # 十字线透明度
 
-        # Set cross line options.
-        self.cross_line_show = True
-        self.cross_line_width = 2.0
-        self.cross_line_color = "#00FF00"
-        self.cross_line_opacity = 0.5
-
-        self.is_loading = False
-        self.loading_text = self.tr("Loading...")
-        self.loading_angle = 0
+        # 加载状态
+        self.is_loading = False  # 是否正在加载
+        self.loading_text = self.tr("Loading...")  # 加载提示文本
+        self.loading_angle = 0  # 加载动画角度
 
     def set_loading(self, is_loading: bool, loading_text: str = None):
         """Set loading state"""
@@ -1152,8 +1158,8 @@ class Canvas(
                 p.drawLine(QtCore.QPointF(*kp), QtCore.QPointF(*vp))
                 # Draw the triangle arrowhead
                 arrow_size = max(
-                    1, int(round(10.0 / Shape.scale))
-                )  # Size of the arrowhead
+                    1, int(round(10.0 / Shape.scale))  # Size of the arrowhead
+                )
                 angle = math.atan2(
                     vp[1] - kp[1], vp[0] - kp[0]
                 )  # Angle towards the value point
@@ -1375,13 +1381,22 @@ class Canvas(
 
         # Draw mouse coordinates
         if self.cross_line_show:
+            # 根据缩放比例动态调整线宽 滴滴
+            if self.scale >= 1.0:  # 放大时
+                # 使用对数函数使线宽变化更平滑
+                max_width = 0.5 / math.log10(self.scale + 1)
+            else:  # 缩小时
+                max_width = 2.0 / self.scale  # 缩小时线宽要相应增加
+            
             pen = QtGui.QPen(
                 QtGui.QColor(self.cross_line_color),
-                max(1, int(round(self.cross_line_width / Shape.scale))),
+                max_width,  # 使用动态计算的线宽
                 Qt.DashLine,
             )
             p.setPen(pen)
             p.setOpacity(self.cross_line_opacity)
+            
+            # 原来的坐标计算方式
             p.drawLine(
                 QtCore.QPointF(self.prev_move_point.x(), 0),
                 QtCore.QPointF(self.prev_move_point.x(), self.pixmap.height()),
